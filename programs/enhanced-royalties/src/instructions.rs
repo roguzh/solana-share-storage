@@ -37,7 +37,8 @@ pub struct SetHolders<'info> {
     #[account(
         mut,
         seeds = [b"share_storage", share_storage.admin.as_ref(), share_storage.name.as_bytes()],
-        bump
+        bump,
+        has_one = admin
     )]
     pub share_storage: Account<'info, ShareStorage>,
     pub admin: Signer<'info>,
@@ -63,7 +64,8 @@ pub struct ToggleEnabled<'info> {
     #[account(
         mut,
         seeds = [b"share_storage", share_storage.admin.as_ref(), share_storage.name.as_bytes()],
-        bump
+        bump,
+        has_one = admin
     )]
     pub share_storage: Account<'info, ShareStorage>,
     pub admin: Signer<'info>,
@@ -128,11 +130,7 @@ pub fn set_holders(
 ) -> Result<()> {
     let share_storage = &mut ctx.accounts.share_storage;
     
-    // Check admin authorization
-    require!(
-        share_storage.is_admin(&ctx.accounts.admin.key()),
-        ErrorCode::Unauthorized
-    );
+    // Admin authorization is enforced by has_one = admin constraint
     
     // Validate maximum number of holders
     require!(holders.len() <= 16, ErrorCode::TooManyHolders);
@@ -255,11 +253,7 @@ pub fn distribute_share(ctx: Context<DistributeShare>, _name: String) -> Result<
 pub fn enable_share_storage(ctx: Context<ToggleEnabled>, _name: String) -> Result<()> {
     let share_storage = &mut ctx.accounts.share_storage;
     
-    // Check admin authorization
-    require!(
-        share_storage.is_admin(&ctx.accounts.admin.key()),
-        ErrorCode::Unauthorized
-    );
+    // Admin authorization is enforced by has_one = admin constraint
     
     share_storage.enabled = true;
     msg!("ShareStorage '{}' enabled", share_storage.name);
@@ -269,11 +263,7 @@ pub fn enable_share_storage(ctx: Context<ToggleEnabled>, _name: String) -> Resul
 pub fn disable_share_storage(ctx: Context<ToggleEnabled>, _name: String) -> Result<()> {
     let share_storage = &mut ctx.accounts.share_storage;
     
-    // Check admin authorization
-    require!(
-        share_storage.is_admin(&ctx.accounts.admin.key()),
-        ErrorCode::Unauthorized
-    );
+    // Admin authorization is enforced by has_one = admin constraint
     
     share_storage.enabled = false;
     msg!("ShareStorage '{}' disabled", share_storage.name);
