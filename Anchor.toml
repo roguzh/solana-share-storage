@@ -12,7 +12,7 @@ enhanced_royalties = "6XLJppAifd5mixoxywpBsTV9ipYgFBQiGg9HaNbtYe3e"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

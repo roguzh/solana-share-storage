@@ -16,11 +16,6 @@ pub mod enhanced_royalties {
         instructions::initialize_share_storage(ctx, name)
     }
 
-    /// Deposit funds to the ShareStorage account
-    pub fn deposit_funds(ctx: Context<DepositFunds>, name: String, amount: u64) -> Result<()> {
-        instructions::deposit_funds(ctx, name, amount)
-    }
-
     /// Set all holders for the ShareStorage (replaces existing holders)
     pub fn set_holders(
         ctx: Context<SetHolders>,

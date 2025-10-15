@@ -71,8 +71,6 @@ pub enum ErrorCode {
     InsufficientFunds,
     #[msg("Invalid name. Name must be between 1 and 32 characters.")]
     InvalidName,
-    #[msg("Invalid amount. Amount must be greater than 0.")]
-    InvalidAmount,
     #[msg("No holders available for distribution.")]
     NoHolders,
     #[msg("Invalid number of holder accounts provided.")]

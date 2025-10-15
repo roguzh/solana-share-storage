@@ -19,20 +19,6 @@ pub struct InitializeShareStorage<'info> {
 
 #[derive(Accounts)]
 #[instruction(name: String)]
-pub struct DepositFunds<'info> {
-    #[account(
-        mut,
-        seeds = [b"share_storage", share_storage.admin.as_ref(), share_storage.name.as_bytes()],
-        bump
-    )]
-    pub share_storage: Account<'info, ShareStorage>,
-    #[account(mut)]
-    pub depositor: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-#[instruction(name: String)]
 pub struct SetHolders<'info> {
     #[account(
         mut,
@@ -85,41 +71,6 @@ pub fn initialize_share_storage(ctx: Context<InitializeShareStorage>, name: Stri
     share_storage.holders = Vec::new();
     
     msg!("ShareStorage '{}' initialized by admin: {}", name, ctx.accounts.admin.key());
-    Ok(())
-}
-
-pub fn deposit_funds(ctx: Context<DepositFunds>, _name: String, amount: u64) -> Result<()> {
-    require!(amount > 0, ErrorCode::InvalidAmount);
-    
-    let depositor = &ctx.accounts.depositor;
-    let share_storage = &ctx.accounts.share_storage;
-    
-    // Check if depositor has enough funds
-    require!(
-        depositor.lamports() >= amount,
-        ErrorCode::InsufficientFunds
-    );
-    
-    // Transfer SOL from depositor to ShareStorage PDA
-    let transfer_instruction = anchor_lang::system_program::Transfer {
-        from: depositor.to_account_info(),
-        to: share_storage.to_account_info(),
-    };
-    
-    let cpi_context = CpiContext::new(
-        ctx.accounts.system_program.to_account_info(),
-        transfer_instruction,
-    );
-    
-    anchor_lang::system_program::transfer(cpi_context, amount)?;
-    
-    msg!(
-        "Deposited {} lamports to ShareStorage '{}'. New balance: {} lamports",
-        amount,
-        share_storage.name,
-        share_storage.to_account_info().lamports()
-    );
-    
     Ok(())
 }
 

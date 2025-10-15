@@ -213,21 +213,21 @@ describe("enhanced-royalties", () => {
     }
   });
 
-  it("Deposit funds to first ShareStorage", async () => {
+  it("Send SOL directly to first ShareStorage", async () => {
     const depositAmount = anchor.web3.LAMPORTS_PER_SOL; // 1 SOL
-    const accounts = {
-      shareStorage: shareStoragePda1,
-      depositor: distributor.publicKey,
-      systemProgram: anchor.web3.SystemProgram.programId,
-    };
-
+    
     const balanceBefore = await provider.connection.getBalance(shareStoragePda1);
 
-    await program.methods
-      .depositFunds(shareStorageName1, new anchor.BN(depositAmount))
-      .accounts(accounts)
-      .signers([distributor])
-      .rpc();
+    // Direct SOL transfer to the ShareStorage PDA
+    const transaction = new anchor.web3.Transaction().add(
+      anchor.web3.SystemProgram.transfer({
+        fromPubkey: distributor.publicKey,
+        toPubkey: shareStoragePda1,
+        lamports: depositAmount,
+      })
+    );
+
+    await provider.sendAndConfirm(transaction, [distributor]);
 
     const balanceAfter = await provider.connection.getBalance(shareStoragePda1);
     expect(balanceAfter - balanceBefore).to.equal(depositAmount);
