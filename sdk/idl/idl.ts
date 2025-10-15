@@ -14,79 +14,6 @@ export type EnhancedRoyalties = {
   },
   "instructions": [
     {
-      "name": "depositFunds",
-      "docs": [
-        "Deposit funds to the ShareStorage account"
-      ],
-      "discriminator": [
-        202,
-        39,
-        52,
-        211,
-        53,
-        20,
-        250,
-        88
-      ],
-      "accounts": [
-        {
-          "name": "shareStorage",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  115,
-                  104,
-                  97,
-                  114,
-                  101,
-                  95,
-                  115,
-                  116,
-                  111,
-                  114,
-                  97,
-                  103,
-                  101
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "share_storage.admin",
-                "account": "shareStorage"
-              },
-              {
-                "kind": "account",
-                "path": "share_storage.name",
-                "account": "shareStorage"
-              }
-            ]
-          }
-        },
-        {
-          "name": "depositor",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "name",
-          "type": "string"
-        },
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ]
-    },
-    {
       "name": "disableShareStorage",
       "docs": [
         "Disable the ShareStorage (admin only)"
@@ -487,26 +414,21 @@ export type EnhancedRoyalties = {
     },
     {
       "code": 6008,
-      "name": "invalidAmount",
-      "msg": "Invalid amount. Amount must be greater than 0."
-    },
-    {
-      "code": 6009,
       "name": "noHolders",
       "msg": "No holders available for distribution."
     },
     {
-      "code": 6010,
+      "code": 6009,
       "name": "invalidHolderAccounts",
       "msg": "Invalid number of holder accounts provided."
     },
     {
-      "code": 6011,
+      "code": 6010,
       "name": "invalidHolderAccount",
       "msg": "Holder account does not match expected pubkey."
     },
     {
-      "code": 6012,
+      "code": 6011,
       "name": "arithmeticOverflow",
       "msg": "Arithmetic overflow occurred."
     }

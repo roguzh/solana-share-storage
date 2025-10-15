@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-enhanced_royalties = "6XLJppAifd5mixoxywpBsTV9ipYgFBQiGg9HaNbtYe3e"
+enhanced_royalties = "AnjNX2EMg7CxBNmc2rod1ViHJiUx5WjNCFvsfwKVauL4"
 
 [registry]
 url = "https://api.apr.dev"
