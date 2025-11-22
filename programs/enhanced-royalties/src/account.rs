@@ -19,37 +19,91 @@ pub struct ShareStorage {
     pub holders: Vec<ShareHolder>,
 }
 
-impl ShareStorage {
-    pub const MAX_HOLDERS: usize = 16;
+#[account]
+#[derive(InitSpace)]
+pub struct SplShareStorage {
+    pub admin: Pubkey,
+    pub token_mint: Pubkey,
+    #[max_len(32)]
+    pub name: String,
+    pub enabled: bool,
+    pub last_distributed_at: i64,
+    pub total_distributed: u64,
+    #[max_len(16)]
+    pub holders: Vec<ShareHolder>,
+}
+
+pub trait ShareStorageOps {
+    const MAX_HOLDERS: usize = 16;
     
-    pub fn is_admin(&self, pubkey: &Pubkey) -> bool {
-        self.admin == *pubkey
+    fn holders(&self) -> &Vec<ShareHolder>;
+    fn holders_mut(&mut self) -> &mut Vec<ShareHolder>;
+    fn admin(&self) -> &Pubkey;
+    
+    fn is_admin(&self, pubkey: &Pubkey) -> bool {
+        self.admin() == pubkey
     }
     
-    pub fn add_holder(&mut self, holder: ShareHolder) -> Result<()> {
-        require!(self.holders.len() < Self::MAX_HOLDERS, ErrorCode::TooManyHolders);
+    fn add_holder(&mut self, holder: ShareHolder) -> Result<()> {
+        let holders = self.holders_mut();
+        require!(
+            holders.len() < Self::MAX_HOLDERS,
+            ErrorCode::TooManyHolders
+        );
         
         // Check if holder already exists
-        for existing_holder in &self.holders {
-            require!(existing_holder.pubkey != holder.pubkey, ErrorCode::HolderAlreadyExists);
+        for existing_holder in holders.iter() {
+            require!(
+                existing_holder.pubkey != holder.pubkey,
+                ErrorCode::HolderAlreadyExists
+            );
         }
         
-        self.holders.push(holder);
+        holders.push(holder);
         Ok(())
     }
     
-    pub fn remove_holder(&mut self, pubkey: &Pubkey) -> Result<()> {
-        let index = self.holders
+    fn remove_holder(&mut self, pubkey: &Pubkey) -> Result<()> {
+        let holders = self.holders_mut();
+        let index = holders
             .iter()
             .position(|h| h.pubkey == *pubkey)
             .ok_or(ErrorCode::HolderNotFound)?;
         
-        self.holders.remove(index);
+        holders.remove(index);
         Ok(())
     }
     
-    pub fn total_basis_points(&self) -> u16 {
-        self.holders.iter().map(|h| h.share_basis_points).sum()
+    fn total_basis_points(&self) -> u16 {
+        self.holders().iter().map(|h| h.share_basis_points).sum()
+    }
+}
+
+impl ShareStorageOps for ShareStorage {
+    fn holders(&self) -> &Vec<ShareHolder> {
+        &self.holders
+    }
+    
+    fn holders_mut(&mut self) -> &mut Vec<ShareHolder> {
+        &mut self.holders
+    }
+    
+    fn admin(&self) -> &Pubkey {
+        &self.admin
+    }
+}
+
+impl ShareStorageOps for SplShareStorage {
+    fn holders(&self) -> &Vec<ShareHolder> {
+        &self.holders
+    }
+    
+    fn holders_mut(&mut self) -> &mut Vec<ShareHolder> {
+        &mut self.holders
+    }
+    
+    fn admin(&self) -> &Pubkey {
+        &self.admin
     }
 }
 
@@ -79,4 +133,6 @@ pub enum ErrorCode {
     InvalidHolderAccount,
     #[msg("Arithmetic overflow occurred.")]
     ArithmeticOverflow,
+    #[msg("Invalid token mint provided.")]
+    InvalidTokenMint,
 }

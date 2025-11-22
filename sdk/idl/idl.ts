@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/enhanced_royalties.json`.
  */
 export type EnhancedRoyalties = {
-  "address": "AnjNX2EMg7CxBNmc2rod1ViHJiUx5WjNCFvsfwKVauL4",
+  "address": "9B6FPPgiuSdD4wJauWWtvYas4xK4eBQypKjDZDRw2ft9",
   "metadata": {
     "name": "enhancedRoyalties",
     "version": "0.1.0",

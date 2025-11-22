@@ -5,14 +5,17 @@ pub mod instructions;
 
 use instructions::*;
 
-declare_id!("AnjNX2EMg7CxBNmc2rod1ViHJiUx5WjNCFvsfwKVauL4");
+declare_id!("9B6FPPgiuSdD4wJauWWtvYas4xK4eBQypKjDZDRw2ft9");
 
 #[program]
 pub mod enhanced_royalties {
     use super::*;
 
     /// Initialize a new ShareStorage account with a name
-    pub fn initialize_share_storage(ctx: Context<InitializeShareStorage>, name: String) -> Result<()> {
+    pub fn initialize_share_storage(
+        ctx: Context<InitializeShareStorage>,
+        name: String,
+    ) -> Result<()> {
         instructions::initialize_share_storage(ctx, name)
     }
 
@@ -38,5 +41,48 @@ pub mod enhanced_royalties {
     /// Disable the ShareStorage (admin only)
     pub fn disable_share_storage(ctx: Context<ToggleEnabled>, name: String) -> Result<()> {
         instructions::disable_share_storage(ctx, name)
+    }
+
+    // ============= SPL Share Storage Instructions =============
+
+    /// Initialize a new SplShareStorage account with a name and token mint
+    pub fn initialize_spl_share_storage(
+        ctx: Context<InitializeSplShareStorage>,
+        name: String,
+    ) -> Result<()> {
+        instructions::initialize_spl_share_storage(ctx, name)
+    }
+
+    /// Set all holders for the SplShareStorage (replaces existing holders)
+    pub fn set_spl_holders(
+        ctx: Context<SetSplHolders>,
+        name: String,
+        holders: Vec<account::ShareHolder>,
+    ) -> Result<()> {
+        instructions::set_spl_holders(ctx, name, holders)
+    }
+
+    /// Distribute SPL tokens to holders from SplShareStorage
+    pub fn distribute_spl_share<'info>(
+        ctx: Context<'_, '_, '_, 'info, DistributeSplShare<'info>>,
+        name: String,
+    ) -> Result<()> {
+        instructions::distribute_spl_share(ctx, name)
+    }
+
+    /// Enable the SplShareStorage (admin only)
+    pub fn enable_spl_share_storage(
+        ctx: Context<ToggleSplEnabled>,
+        name: String,
+    ) -> Result<()> {
+        instructions::enable_spl_share_storage(ctx, name)
+    }
+
+    /// Disable the SplShareStorage (admin only)
+    pub fn disable_spl_share_storage(
+        ctx: Context<ToggleSplEnabled>,
+        name: String,
+    ) -> Result<()> {
+        instructions::disable_spl_share_storage(ctx, name)
     }
 }

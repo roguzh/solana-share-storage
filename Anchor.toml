@@ -6,14 +6,17 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-enhanced_royalties = "AnjNX2EMg7CxBNmc2rod1ViHJiUx5WjNCFvsfwKVauL4"
+enhanced_royalties = "9B6FPPgiuSdD4wJauWWtvYas4xK4eBQypKjDZDRw2ft9"
+
+[programs.mainnet]
+enhanced_royalties = "9B6FPPgiuSdD4wJauWWtvYas4xK4eBQypKjDZDRw2ft9"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
-wallet = "~/.config/solana/id.json"
+cluster = "localnet"
+wallet = "./keypair/authority.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
