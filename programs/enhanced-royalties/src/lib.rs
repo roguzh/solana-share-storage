@@ -5,7 +5,7 @@ pub mod instructions;
 
 use instructions::*;
 
-declare_id!("AnjNX2EMg7CxBNmc2rod1ViHJiUx5WjNCFvsfwKVauL4");
+declare_id!("9B6FPPgiuSdD4wJauWWtvYas4xK4eBQypKjDZDRw2ft9");
 
 #[program]
 pub mod enhanced_royalties {
