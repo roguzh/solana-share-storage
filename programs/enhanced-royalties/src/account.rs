@@ -8,6 +8,15 @@ pub struct ShareHolder {
 
 #[account]
 #[derive(InitSpace)]
+pub struct TokenDistributionRecord {
+    pub share_storage: Pubkey,
+    pub mint: Pubkey,
+    pub total_distributed: u64,
+    pub last_distributed_at: i64,
+}
+
+#[account]
+#[derive(InitSpace)]
 pub struct ShareStorage {
     pub admin: Pubkey,
     #[max_len(32)]
@@ -79,4 +88,12 @@ pub enum ErrorCode {
     InvalidHolderAccount,
     #[msg("Arithmetic overflow occurred.")]
     ArithmeticOverflow,
+    #[msg("Invalid token account: wrong mint.")]
+    InvalidTokenMint,
+    #[msg("Invalid token account: wrong owner.")]
+    InvalidTokenOwner,
+    #[msg("Token account is frozen.")]
+    TokenAccountFrozen,
+    #[msg("Missing required accounts for token distribution.")]
+    MissingTokenDistributionAccounts,
 }

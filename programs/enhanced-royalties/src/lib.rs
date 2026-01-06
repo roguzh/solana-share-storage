@@ -25,8 +25,11 @@ pub mod enhanced_royalties {
         instructions::set_holders(ctx, name, holders)
     }
 
-    /// Distribute all available shares to holders
-    pub fn distribute_share(ctx: Context<DistributeShare>, name: String) -> Result<()> {
+    /// Distribute all available shares to holders (SOL or tokens)
+    pub fn distribute_share<'info>(
+        ctx: Context<'_, '_, 'info, 'info, DistributeShare<'info>>,
+        name: String,
+    ) -> Result<()> {
         instructions::distribute_share(ctx, name)
     }
 
