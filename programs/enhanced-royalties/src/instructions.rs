@@ -33,9 +33,10 @@ pub struct SetHolders<'info> {
     pub admin: Signer<'info>,
 }
 
+/// Distribute SOL from the share storage to holders
 #[derive(Accounts)]
 #[instruction(name: String)]
-pub struct DistributeShare<'info> {
+pub struct DistributeSol<'info> {
     #[account(
         mut,
         seeds = [b"share_storage", share_storage.admin.as_ref(), share_storage.name.as_bytes()],
@@ -43,9 +44,20 @@ pub struct DistributeShare<'info> {
     )]
     pub share_storage: Account<'info, ShareStorage>,
     pub system_program: Program<'info, System>,
+}
 
-    #[account()]
-    pub token_mint: Option<InterfaceAccount<'info, Mint>>,
+/// Distribute SPL tokens from the share storage to holders
+#[derive(Accounts)]
+#[instruction(name: String)]
+pub struct DistributeTokens<'info> {
+    #[account(
+        mut,
+        seeds = [b"share_storage", share_storage.admin.as_ref(), share_storage.name.as_bytes()],
+        bump
+    )]
+    pub share_storage: Account<'info, ShareStorage>,
+
+    pub token_mint: InterfaceAccount<'info, Mint>,
 
     #[account(
         mut,
@@ -53,24 +65,25 @@ pub struct DistributeShare<'info> {
         associated_token::authority = share_storage,
         associated_token::token_program = token_program,
     )]
-    pub token_account: Option<Box<InterfaceAccount<'info, TokenAccount>>>,
+    pub token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    pub token_program: Option<Interface<'info, TokenInterface>>,
+    pub token_program: Interface<'info, TokenInterface>,
 
     /// Token distribution record - tracks per-mint distribution stats
-    /// Only required for token distributions, created on first distribution
+    /// Created on first distribution for this mint
     #[account(
         init_if_needed,
         payer = payer,
         space = 8 + TokenDistributionRecord::INIT_SPACE,
-        seeds = [b"token_dist", share_storage.key().as_ref(), token_mint.as_ref().map(|m| m.key()).unwrap_or_default().as_ref()],
+        seeds = [b"token_dist", share_storage.key().as_ref(), token_mint.key().as_ref()],
         bump
     )]
-    pub token_distribution_record: Option<Account<'info, TokenDistributionRecord>>,
+    pub token_distribution_record: Account<'info, TokenDistributionRecord>,
 
-    /// Payer for creating the token distribution record (required for token distributions)
     #[account(mut)]
-    pub payer: Option<Signer<'info>>,
+    pub payer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -137,11 +150,11 @@ pub fn set_holders(
     Ok(())
 }
 
-pub fn distribute_share<'info>(
-    ctx: Context<'_, '_, 'info, 'info, DistributeShare<'info>>,
+/// Distribute SOL from the share storage to holders
+pub fn distribute_sol<'info>(
+    ctx: Context<'_, '_, 'info, 'info, DistributeSol<'info>>,
     _name: String,
 ) -> Result<()> {
-    // First, do all validation
     require!(
         ctx.accounts.share_storage.enabled,
         ErrorCode::ShareStorageDisabled
@@ -155,102 +168,134 @@ pub fn distribute_share<'info>(
         ErrorCode::InvalidHolderAccounts
     );
 
-    let is_token_distribution = ctx.accounts.token_mint.is_some()
-        && ctx.accounts.token_account.is_some()
-        && ctx.accounts.token_program.is_some();
+    let holders = ctx.accounts.share_storage.holders.clone();
+    let share_storage_info = ctx.accounts.share_storage.to_account_info();
+    let current_balance = share_storage_info.lamports();
+    let rent_exempt_minimum = Rent::get()?.minimum_balance(share_storage_info.data_len());
 
-    // Validate required accounts for token distribution
-    if is_token_distribution {
-        require!(
-            ctx.accounts.token_distribution_record.is_some() && ctx.accounts.payer.is_some(),
-            ErrorCode::MissingTokenDistributionAccounts
-        );
+    if current_balance <= rent_exempt_minimum {
+        return Ok(());
     }
 
-    // Clone data we need
+    let distributable_amount = current_balance - rent_exempt_minimum;
+    let mut sol_distributed = 0u64;
+    let total_basis_points = 10000u32;
+
+    // Distribute to each holder
+    for (i, holder) in holders.iter().enumerate() {
+        let holder_account_info = &ctx.remaining_accounts[i];
+
+        require!(
+            holder_account_info.key() == holder.pubkey,
+            ErrorCode::InvalidHolderAccount
+        );
+
+        let holder_share = (distributable_amount as u128 * holder.share_basis_points as u128
+            / total_basis_points as u128) as u64;
+
+        if holder_share > 0 {
+            share_storage_info.sub_lamports(holder_share)?;
+            holder_account_info.add_lamports(holder_share)?;
+            sol_distributed += holder_share;
+        }
+    }
+
+    // Handle any remainder due to rounding
+    let remainder = distributable_amount - sol_distributed;
+    if remainder > 0 {
+        let first_holder_account = &ctx.remaining_accounts[0];
+        share_storage_info.sub_lamports(remainder)?;
+        first_holder_account.add_lamports(remainder)?;
+        sol_distributed += remainder;
+    }
+
+    // Update share storage stats
+    let share_storage = &mut ctx.accounts.share_storage;
+    share_storage.total_distributed = share_storage
+        .total_distributed
+        .checked_add(sol_distributed)
+        .ok_or(ErrorCode::ArithmeticOverflow)?;
+    share_storage.last_distributed_at = Clock::get()?.unix_timestamp;
+
+    Ok(())
+}
+
+/// Distribute SPL tokens from the share storage to holders
+pub fn distribute_tokens<'info>(
+    ctx: Context<'_, '_, 'info, 'info, DistributeTokens<'info>>,
+    _name: String,
+) -> Result<()> {
+    require!(
+        ctx.accounts.share_storage.enabled,
+        ErrorCode::ShareStorageDisabled
+    );
+    require!(
+        !ctx.accounts.share_storage.holders.is_empty(),
+        ErrorCode::NoHolders
+    );
+    require!(
+        ctx.remaining_accounts.len() == ctx.accounts.share_storage.holders.len(),
+        ErrorCode::InvalidHolderAccounts
+    );
+
     let name_bytes = ctx.accounts.share_storage.name.clone();
     let admin_key = ctx.accounts.share_storage.admin;
     let holders = ctx.accounts.share_storage.holders.clone();
     let bump = ctx.bumps.share_storage;
 
+    let token_account_info = ctx.accounts.token_account.to_account_info();
+    let token_program_info = ctx.accounts.token_program.to_account_info();
+    let share_storage_info = ctx.accounts.share_storage.to_account_info();
+    let token_amount = ctx.accounts.token_account.amount;
+    let expected_mint = ctx.accounts.token_mint.key();
+    let decimals = ctx.accounts.token_mint.decimals;
+    let mint_info = ctx.accounts.token_mint.to_account_info();
+
+    if token_amount == 0 {
+        return Ok(());
+    }
+
+    // Validate all holder token accounts before distribution
+    for (i, holder) in holders.iter().enumerate() {
+        let holder_token_account_info = &ctx.remaining_accounts[i];
+        
+        let holder_token_account: InterfaceAccount<TokenAccount> = 
+            InterfaceAccount::try_from(holder_token_account_info)?;
+        
+        require!(
+            holder_token_account.mint == expected_mint,
+            ErrorCode::InvalidTokenMint
+        );
+        require!(
+            holder_token_account.owner == holder.pubkey,
+            ErrorCode::InvalidTokenOwner
+        );
+        require!(
+            !holder_token_account.is_frozen(),
+            ErrorCode::TokenAccountFrozen
+        );
+    }
+
+    let distributable_amount = token_amount;
+    let mut tokens_distributed = 0u64;
     let total_basis_points = 10000u32;
 
-    if is_token_distribution {
-        let token_account_info = ctx.accounts.token_account.as_ref().unwrap().to_account_info();
-        let token_program_info = ctx.accounts.token_program.as_ref().unwrap().to_account_info();
-        let share_storage_info = ctx.accounts.share_storage.to_account_info();
-        let token_amount = ctx.accounts.token_account.as_ref().unwrap().amount;
-        let token_mint = ctx.accounts.token_mint.as_ref().unwrap();
-        let expected_mint = token_mint.key();
-        let decimals = token_mint.decimals;
-        let mint_info = token_mint.to_account_info();
+    // Prepare PDA signer seeds
+    let signer_seeds: &[&[&[u8]]] =
+        &[&[b"share_storage", admin_key.as_ref(), name_bytes.as_bytes(), &[bump]]];
 
-        if token_amount == 0 {
-            return Ok(());
-        }
+    // Distribute tokens to each holder
+    for (i, holder) in holders.iter().enumerate() {
+        let holder_token_account = &ctx.remaining_accounts[i];
 
-        // Validate all holder token accounts before distribution
-        for (i, holder) in holders.iter().enumerate() {
-            let holder_token_account_info = &ctx.remaining_accounts[i];
-            
-            let holder_token_account: InterfaceAccount<TokenAccount> = 
-                InterfaceAccount::try_from(holder_token_account_info)?;
-            
-            require!(
-                holder_token_account.mint == expected_mint,
-                ErrorCode::InvalidTokenMint
-            );
-            require!(
-                holder_token_account.owner == holder.pubkey,
-                ErrorCode::InvalidTokenOwner
-            );
-            require!(
-                !holder_token_account.is_frozen(),
-                ErrorCode::TokenAccountFrozen
-            );
-        }
+        let holder_share = (distributable_amount as u128 * holder.share_basis_points as u128
+            / total_basis_points as u128) as u64;
 
-        let distributable_amount = token_amount;
-        let mut tokens_distributed = 0u64;
-
-        // Prepare PDA signer seeds
-        let signer_seeds: &[&[&[u8]]] =
-            &[&[b"share_storage", admin_key.as_ref(), name_bytes.as_bytes(), &[bump]]];
-
-        // Distribute tokens to each holder
-        for (i, holder) in holders.iter().enumerate() {
-            let holder_token_account = &ctx.remaining_accounts[i];
-
-            let holder_share = (distributable_amount as u128 * holder.share_basis_points as u128
-                / total_basis_points as u128) as u64;
-
-            if holder_share > 0 {
-                let cpi_accounts = TransferChecked {
-                    from: token_account_info.clone(),
-                    mint: mint_info.clone(),
-                    to: holder_token_account.clone(),
-                    authority: share_storage_info.clone(),
-                };
-                let cpi_ctx = CpiContext::new_with_signer(
-                    token_program_info.clone(),
-                    cpi_accounts,
-                    signer_seeds,
-                );
-
-                transfer_checked(cpi_ctx, holder_share, decimals)?;
-                tokens_distributed += holder_share;
-            }
-        }
-
-        // Handle any remainder due to rounding
-        let remainder = distributable_amount - tokens_distributed;
-        if remainder > 0 {
-            let first_holder_token_account = &ctx.remaining_accounts[0];
-
+        if holder_share > 0 {
             let cpi_accounts = TransferChecked {
                 from: token_account_info.clone(),
                 mint: mint_info.clone(),
-                to: first_holder_token_account.clone(),
+                to: holder_token_account.clone(),
                 authority: share_storage_info.clone(),
             };
             let cpi_ctx = CpiContext::new_with_signer(
@@ -259,73 +304,45 @@ pub fn distribute_share<'info>(
                 signer_seeds,
             );
 
-            transfer_checked(cpi_ctx, remainder, decimals)?;
-            tokens_distributed += remainder;
+            transfer_checked(cpi_ctx, holder_share, decimals)?;
+            tokens_distributed += holder_share;
         }
-
-        // Update token distribution record
-        let record = ctx.accounts.token_distribution_record.as_mut().unwrap();
-        record.share_storage = ctx.accounts.share_storage.key();
-        record.mint = expected_mint;
-        record.total_distributed = record
-            .total_distributed
-            .checked_add(tokens_distributed)
-            .ok_or(ErrorCode::ArithmeticOverflow)?;
-        record.last_distributed_at = Clock::get()?.unix_timestamp;
-    } else {
-        // SOL distribution
-        let share_storage_info = ctx.accounts.share_storage.to_account_info();
-        let current_balance = share_storage_info.lamports();
-        let rent_exempt_minimum = Rent::get()?.minimum_balance(share_storage_info.data_len());
-
-        if current_balance <= rent_exempt_minimum {
-            return Ok(());
-        }
-
-        let distributable_amount = current_balance - rent_exempt_minimum;
-        let mut sol_distributed = 0u64;
-
-        // Distribute to each holder
-        for (i, holder) in holders.iter().enumerate() {
-            let holder_account_info = &ctx.remaining_accounts[i];
-
-            require!(
-                holder_account_info.key() == holder.pubkey,
-                ErrorCode::InvalidHolderAccount
-            );
-
-            let holder_share = (distributable_amount as u128 * holder.share_basis_points as u128
-                / total_basis_points as u128) as u64;
-
-            if holder_share > 0 {
-                share_storage_info.sub_lamports(holder_share)?;
-                holder_account_info.add_lamports(holder_share)?;
-                sol_distributed += holder_share;
-            }
-        }
-
-        // Handle any remainder due to rounding
-        let remainder = distributable_amount - sol_distributed;
-        if remainder > 0 {
-            let first_holder_account = &ctx.remaining_accounts[0];
-
-            share_storage_info.sub_lamports(remainder)?;
-            first_holder_account.add_lamports(remainder)?;
-            sol_distributed += remainder;
-        }
-
-        // Update total_distributed only for SOL
-        let share_storage = &mut ctx.accounts.share_storage;
-        share_storage.total_distributed = share_storage
-            .total_distributed
-            .checked_add(sol_distributed)
-            .ok_or(ErrorCode::ArithmeticOverflow)?;
     }
 
-    // Update last distribution timestamp
-    let clock = Clock::get()?;
+    // Handle any remainder due to rounding
+    let remainder = distributable_amount - tokens_distributed;
+    if remainder > 0 {
+        let first_holder_token_account = &ctx.remaining_accounts[0];
+
+        let cpi_accounts = TransferChecked {
+            from: token_account_info.clone(),
+            mint: mint_info.clone(),
+            to: first_holder_token_account.clone(),
+            authority: share_storage_info.clone(),
+        };
+        let cpi_ctx = CpiContext::new_with_signer(
+            token_program_info.clone(),
+            cpi_accounts,
+            signer_seeds,
+        );
+
+        transfer_checked(cpi_ctx, remainder, decimals)?;
+        tokens_distributed += remainder;
+    }
+
+    // Update token distribution record
+    let record = &mut ctx.accounts.token_distribution_record;
+    record.share_storage = ctx.accounts.share_storage.key();
+    record.mint = expected_mint;
+    record.total_distributed = record
+        .total_distributed
+        .checked_add(tokens_distributed)
+        .ok_or(ErrorCode::ArithmeticOverflow)?;
+    record.last_distributed_at = Clock::get()?.unix_timestamp;
+
+    // Update share storage timestamp
     let share_storage = &mut ctx.accounts.share_storage;
-    share_storage.last_distributed_at = clock.unix_timestamp;
+    share_storage.last_distributed_at = Clock::get()?.unix_timestamp;
 
     Ok(())
 }

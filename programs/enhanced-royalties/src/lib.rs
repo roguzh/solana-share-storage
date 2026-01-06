@@ -25,12 +25,20 @@ pub mod enhanced_royalties {
         instructions::set_holders(ctx, name, holders)
     }
 
-    /// Distribute all available shares to holders (SOL or tokens)
-    pub fn distribute_share<'info>(
-        ctx: Context<'_, '_, 'info, 'info, DistributeShare<'info>>,
+    /// Distribute SOL from share storage to holders
+    pub fn distribute_sol<'info>(
+        ctx: Context<'_, '_, 'info, 'info, DistributeSol<'info>>,
         name: String,
     ) -> Result<()> {
-        instructions::distribute_share(ctx, name)
+        instructions::distribute_sol(ctx, name)
+    }
+
+    /// Distribute SPL tokens from share storage to holders
+    pub fn distribute_tokens<'info>(
+        ctx: Context<'_, '_, 'info, 'info, DistributeTokens<'info>>,
+        name: String,
+    ) -> Result<()> {
+        instructions::distribute_tokens(ctx, name)
     }
 
     /// Enable the ShareStorage (admin only)

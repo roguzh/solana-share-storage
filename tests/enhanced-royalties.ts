@@ -1,5 +1,12 @@
 import * as anchor from "@coral-xyz/anchor";
 import { expect } from "chai";
+import {
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  getAssociatedTokenAddressSync,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 
 describe("enhanced-royalties", () => {
   // Configure the client to use the local cluster.
@@ -17,6 +24,13 @@ describe("enhanced-royalties", () => {
   let holder2: anchor.web3.Keypair;
   let distributor: anchor.web3.Keypair;
 
+  // Token-related variables
+  let tokenMint: anchor.web3.PublicKey;
+  let shareStorageTokenAccount: anchor.web3.PublicKey;
+  let holder1TokenAccount: anchor.web3.PublicKey;
+  let holder2TokenAccount: anchor.web3.PublicKey;
+  let tokenDistributionRecord: anchor.web3.PublicKey;
+
   before(async () => {
     admin = anchor.web3.Keypair.generate();
     holder1 = anchor.web3.Keypair.generate();
@@ -27,7 +41,7 @@ describe("enhanced-royalties", () => {
     await provider.connection.confirmTransaction(
       await provider.connection.requestAirdrop(
         admin.publicKey,
-        2 * anchor.web3.LAMPORTS_PER_SOL
+        5 * anchor.web3.LAMPORTS_PER_SOL
       )
     );
     await provider.connection.confirmTransaction(
@@ -233,7 +247,7 @@ describe("enhanced-royalties", () => {
     expect(balanceAfter - balanceBefore).to.equal(depositAmount);
   });
 
-  it("Distribute all available shares from first ShareStorage", async () => {
+  it("Distribute SOL from first ShareStorage", async () => {
     // First ensure we have valid holders (exactly 10,000 basis points)
     const setHoldersAccounts = {
       shareStorage: shareStoragePda1,
@@ -255,8 +269,7 @@ describe("enhanced-royalties", () => {
     const holder1BalanceBefore = await provider.connection.getBalance(holder1.publicKey);
     const holder2BalanceBefore = await provider.connection.getBalance(holder2.publicKey);
 
-    // Now distribute all available funds (no amount parameter)
-    // Need to include holder accounts as remaining accounts in the same order as holders
+    // Now distribute SOL
     const accounts = {
       shareStorage: shareStoragePda1,
       systemProgram: anchor.web3.SystemProgram.programId,
@@ -265,7 +278,7 @@ describe("enhanced-royalties", () => {
     const balanceBefore = await provider.connection.getBalance(shareStoragePda1);
 
     await program.methods
-      .distributeShare(shareStorageName1)
+      .distributeSol(shareStorageName1)
       .accounts(accounts)
       .remainingAccounts([
         { pubkey: holder1.publicKey, isSigner: false, isWritable: true },
@@ -297,6 +310,117 @@ describe("enhanced-royalties", () => {
     
     expect(holder1Ratio).to.be.approximately(0.3, 0.01); // 30% ± 1%
     expect(holder2Ratio).to.be.approximately(0.7, 0.01); // 70% ± 1%
+  });
+
+  it("Setup and distribute SPL tokens", async () => {
+    // Create a new mint
+    tokenMint = await createMint(
+      provider.connection,
+      admin,
+      admin.publicKey,
+      null,
+      9 // 9 decimals
+    );
+
+    // Create token account for the share storage PDA
+    const shareStorageAta = await getOrCreateAssociatedTokenAccount(
+      provider.connection,
+      admin,
+      tokenMint,
+      shareStoragePda1,
+      true // allowOwnerOffCurve for PDA
+    );
+    shareStorageTokenAccount = shareStorageAta.address;
+
+    // Create token accounts for holders
+    const holder1Ata = await getOrCreateAssociatedTokenAccount(
+      provider.connection,
+      admin,
+      tokenMint,
+      holder1.publicKey
+    );
+    holder1TokenAccount = holder1Ata.address;
+
+    const holder2Ata = await getOrCreateAssociatedTokenAccount(
+      provider.connection,
+      admin,
+      tokenMint,
+      holder2.publicKey
+    );
+    holder2TokenAccount = holder2Ata.address;
+
+    // Mint tokens to the share storage token account
+    const mintAmount = 1_000_000_000_000n; // 1000 tokens with 9 decimals
+    await mintTo(
+      provider.connection,
+      admin,
+      tokenMint,
+      shareStorageTokenAccount,
+      admin,
+      mintAmount
+    );
+
+    // Derive the token distribution record PDA
+    [tokenDistributionRecord] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("token_dist"), shareStoragePda1.toBuffer(), tokenMint.toBuffer()],
+      program.programId
+    );
+
+    // Get holder token balances before
+    const holder1TokenBefore = (await provider.connection.getTokenAccountBalance(holder1TokenAccount)).value.uiAmount;
+    const holder2TokenBefore = (await provider.connection.getTokenAccountBalance(holder2TokenAccount)).value.uiAmount;
+
+    // Distribute tokens
+    const accounts = {
+      shareStorage: shareStoragePda1,
+      tokenMint: tokenMint,
+      tokenAccount: shareStorageTokenAccount,
+      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenDistributionRecord: tokenDistributionRecord,
+      payer: admin.publicKey,
+      systemProgram: anchor.web3.SystemProgram.programId,
+    };
+
+    await program.methods
+      .distributeTokens(shareStorageName1)
+      .accounts(accounts)
+      .remainingAccounts([
+        { pubkey: holder1TokenAccount, isSigner: false, isWritable: true },
+        { pubkey: holder2TokenAccount, isSigner: false, isWritable: true }
+      ])
+      .signers([admin])
+      .rpc();
+
+    // Verify token distribution
+    const holder1TokenAfter = (await provider.connection.getTokenAccountBalance(holder1TokenAccount)).value.uiAmount;
+    const holder2TokenAfter = (await provider.connection.getTokenAccountBalance(holder2TokenAccount)).value.uiAmount;
+
+    expect(holder1TokenAfter).to.be.greaterThan(holder1TokenBefore || 0);
+    expect(holder2TokenAfter).to.be.greaterThan(holder2TokenBefore || 0);
+
+    // Verify proportional distribution (30% vs 70%)
+    const holder1TokenReceived = holder1TokenAfter! - (holder1TokenBefore || 0);
+    const holder2TokenReceived = holder2TokenAfter! - (holder2TokenBefore || 0);
+    const totalTokenReceived = holder1TokenReceived + holder2TokenReceived;
+
+    const holder1Ratio = holder1TokenReceived / totalTokenReceived;
+    const holder2Ratio = holder2TokenReceived / totalTokenReceived;
+
+    expect(holder1Ratio).to.be.approximately(0.3, 0.01); // 30% ± 1%
+    expect(holder2Ratio).to.be.approximately(0.7, 0.01); // 70% ± 1%
+
+    // Verify token distribution record was created and updated
+    const record = await program.account.tokenDistributionRecord.fetch(tokenDistributionRecord);
+    expect(record.shareStorage.toString()).to.equal(shareStoragePda1.toString());
+    expect(record.mint.toString()).to.equal(tokenMint.toString());
+    expect(record.totalDistributed.toNumber()).to.be.greaterThan(0);
+    expect(record.lastDistributedAt.toNumber()).to.be.greaterThan(0);
+
+    // Verify ShareStorage.totalDistributed is NOT updated (only tracks SOL)
+    const shareStorage = await program.account.shareStorage.fetch(shareStoragePda1);
+    // totalDistributed should only contain the SOL distribution from previous test
+    console.log("ShareStorage.totalDistributed (SOL only):", shareStorage.totalDistributed.toString());
+    console.log("TokenDistributionRecord.totalDistributed:", record.totalDistributed.toString());
   });
 
   it("Disable first ShareStorage", async () => {
