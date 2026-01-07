@@ -15,7 +15,7 @@ enhanced_royalties = "9B6FPPgiuSdD4wJauWWtvYas4xK4eBQypKjDZDRw2ft9"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "https://mainnet.helius-rpc.com/?api-key=179e76bb-bd23-4784-8636-e36f5b0b6baf"
+cluster = "localnet"
 wallet = "./keypair/authority.json"
 
 [scripts]

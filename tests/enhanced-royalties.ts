@@ -350,7 +350,7 @@ describe("enhanced-royalties", () => {
     holder2TokenAccount = holder2Ata.address;
 
     // Mint tokens to the share storage token account
-    const mintAmount = 1_000_000_000_000n; // 1000 tokens with 9 decimals
+    const mintAmount = BigInt(1_000_000_000_000); // 1000 tokens with 9 decimals
     await mintTo(
       provider.connection,
       admin,
