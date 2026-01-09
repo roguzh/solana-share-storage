@@ -179,7 +179,14 @@ export class EnhancedRoyaltiesSDK {
       this.program.programId
     );
 
-    return this.program.account.shareStorage.fetch(shareStoragePda);
+    const storage = await this.program.account.shareStorage.fetch(
+      shareStoragePda
+    );
+
+    return {
+      address: shareStoragePda,
+      ...storage,
+    };
   }
 
   async getShareStoragesByAdmin(admin: anchor.web3.PublicKey) {
