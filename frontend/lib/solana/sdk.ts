@@ -1,6 +1,11 @@
 import { Program } from "@coral-xyz/anchor";
 import { clusterApiUrl, Connection, PublicKey, Transaction } from "@solana/web3.js";
-import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from "@solana/spl-token";
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
+  createAssociatedTokenAccountIdempotentInstruction,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import idl from "../idl/enhanced_royalties.json";
 import * as anchor from "@coral-xyz/anchor";
 import type { ShareHolder } from "@/types/program";
@@ -133,8 +138,57 @@ export class EnhancedRoyaltiesSDK {
   }
 
   /**
-   * Distribute SPL tokens to all holders
-   * Note: This method was added based on test patterns (lines 315-424)
+   * Create an Associated Token Account for the storage PDA so it can receive a given SPL token.
+   * Must be called once per mint before depositing tokens.
+   */
+  async createStorageTokenAccountTransaction({
+    shareStorageName,
+    admin,
+    tokenMint,
+    payer,
+  }: {
+    shareStorageName: string;
+    admin: PublicKey;
+    tokenMint: PublicKey;
+    payer: PublicKey;
+  }): Promise<Transaction> {
+    const [shareStoragePda] = this.deriveShareStoragePDA(admin, shareStorageName);
+    const storageAta = await getAssociatedTokenAddress(
+      tokenMint,
+      shareStoragePda,
+      true // allowOwnerOffCurve — PDA as owner
+    );
+
+    const ix = createAssociatedTokenAccountIdempotentInstruction(
+      payer,           // fee payer
+      storageAta,      // ATA to create
+      shareStoragePda, // owner
+      tokenMint,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    const tx = new Transaction().add(ix);
+    return tx;
+  }
+
+  /**
+   * Get the ATA address for a given mint owned by the storage PDA.
+   */
+  async getStorageTokenAccount(
+    admin: PublicKey,
+    shareStorageName: string,
+    tokenMint: PublicKey
+  ): Promise<PublicKey> {
+    const [shareStoragePda] = this.deriveShareStoragePDA(admin, shareStorageName);
+    return getAssociatedTokenAddress(tokenMint, shareStoragePda, true);
+  }
+
+  /**
+   * Distribute SPL tokens to all holders.
+   * Prepends idempotent ATA-creation instructions for every holder that
+   * does not yet have a token account for this mint, so the distribution
+   * succeeds even on first use.
    */
   async distributeTokensTransaction({
     shareStorageName,
@@ -151,27 +205,37 @@ export class EnhancedRoyaltiesSDK {
       tokenMint
     );
 
-    // Get storage's token account (ATA)
+    // Storage ATA (must already exist — created via createStorageTokenAccountTransaction)
     const storageTokenAccount = await getAssociatedTokenAddress(
       tokenMint,
       shareStoragePda,
-      true // allowOwnerOffCurve for PDA
+      true
     );
 
     // Fetch holders from on-chain storage
     const { holders } = await this.program.account.shareStorage.fetch(shareStoragePda);
 
-    // Get token accounts for all holders
+    // Derive holder token accounts (ATAs)
     const holderTokenAccounts = await Promise.all(
-      holders.map(async (holder: any) => {
-        const ata = await getAssociatedTokenAddress(tokenMint, holder.pubkey);
-        return {
-          pubkey: ata,
-          isSigner: false,
-          isWritable: true,
-        };
-      })
+      holders.map((holder: ShareHolder) =>
+        getAssociatedTokenAddress(tokenMint, holder.pubkey)
+      )
     );
+
+    // Prepend idempotent ATA-creation instructions for every holder
+    const tx = new Transaction();
+    for (let i = 0; i < holders.length; i++) {
+      tx.add(
+        createAssociatedTokenAccountIdempotentInstruction(
+          admin,
+          holderTokenAccounts[i],
+          holders[i].pubkey,
+          tokenMint,
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        )
+      );
+    }
 
     const accounts = {
       shareStorage: shareStoragePda,
@@ -183,11 +247,17 @@ export class EnhancedRoyaltiesSDK {
       systemProgram: anchor.web3.SystemProgram.programId,
     };
 
-    return this.program.methods
+    const distributeTx = await this.program.methods
       .distributeTokens(shareStorageName)
       .accounts(accounts)
-      .remainingAccounts(holderTokenAccounts)
+      .remainingAccounts(
+        holderTokenAccounts.map((acc) => ({ pubkey: acc, isSigner: false, isWritable: true }))
+      )
       .transaction();
+
+    // Merge: ATA creations first, then the distribute instruction
+    tx.add(...distributeTx.instructions);
+    return tx;
   }
 
   /**

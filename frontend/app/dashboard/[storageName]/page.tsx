@@ -11,8 +11,8 @@ import { formatAddress, formatSOL, formatDate, formatBasisPoints } from '@/lib/u
 import type { ShareHolder } from '@/types/program';
 import { EditHoldersModal } from '@/components/storage/EditHoldersModal';
 import { DistributeSOLButton } from '@/components/distribution/DistributeSOLButton';
-import { DistributeTokenButton } from '@/components/distribution/DistributeTokenButton';
 import { BalanceDisplay } from '@/components/distribution/BalanceDisplay';
+import { TokensSection } from '@/components/distribution/TokensSection';
 import { EnableToggle } from '@/components/storage/EnableToggle';
 
 export default function StorageDetailPage({
@@ -278,31 +278,32 @@ export default function StorageDetailPage({
 
           {/* Right Column - Balance & Actions */}
           <div className="space-y-6">
-            {/* Balance Display */}
+            {/* SOL Balance + Distribute SOL */}
             <BalanceDisplay storagePDA={storage.pda} />
 
-            {/* Distribution Actions */}
             <div className="card-elevated p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Actions</h2>
-              <div className="space-y-3">
-                <DistributeSOLButton
-                  storageName={storage.name}
-                  storagePDA={storage.pda}
-                  holders={storage.holders}
-                  enabled={storage.enabled}
-                  onSuccess={refresh}
-                />
-                <DistributeTokenButton
-                  storageName={storage.name}
-                  storagePDA={storage.pda}
-                  holders={storage.holders}
-                  enabled={storage.enabled}
-                  onSuccess={refresh}
-                />
-              </div>
+              <h2 className="text-lg font-bold text-gray-900 mb-4">SOL Distribution</h2>
+              <DistributeSOLButton
+                storageName={storage.name}
+                storagePDA={storage.pda}
+                holders={storage.holders}
+                enabled={storage.enabled}
+                onSuccess={refresh}
+              />
             </div>
           </div>
         </div>
+
+        {/* SPL Tokens — full width below */}
+        <TokensSection
+          storageName={storage.name}
+          storagePDA={storage.pda}
+          admin={storage.admin}
+          holders={storage.holders}
+          enabled={storage.enabled}
+          isAdmin={!!isAdmin}
+          onSuccess={refresh}
+        />
       </main>
 
       {/* Edit Holders Modal */}
