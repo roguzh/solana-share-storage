@@ -1,121 +1,79 @@
 'use client';
 
+import { ReactNode, useState } from 'react';
 import { PublicKey } from '@solana/web3.js';
 import { useBalance } from '@/hooks/useBalance';
-import { useTokenAccounts } from '@/hooks/useTokenAccounts';
-import { formatSOL, formatTokenAmount, formatAddress } from '@/lib/utils/format';
-import { RefreshCw, Wallet, Coins } from 'lucide-react';
+import { formatSOL } from '@/lib/utils/format';
+import { RefreshCw, Wallet, Copy, Check, ArrowDownToLine } from 'lucide-react';
 
 interface BalanceDisplayProps {
   storagePDA: PublicKey;
+  /** Optional action rendered below the deposit address (e.g. DistributeSOLButton) */
+  children?: ReactNode;
 }
 
-export function BalanceDisplay({ storagePDA }: BalanceDisplayProps) {
-  const { balance, isLoading: isLoadingSOL, refresh: refreshSOL } = useBalance(storagePDA);
-  const {
-    tokenAccounts,
-    isLoading: isLoadingTokens,
-    refresh: refreshTokens,
-  } = useTokenAccounts(storagePDA);
+export function BalanceDisplay({ storagePDA, children }: BalanceDisplayProps) {
+  const { balance, isLoading, refresh } = useBalance(storagePDA);
+  const [copied, setCopied] = useState(false);
 
-  const handleRefresh = () => {
-    refreshSOL();
-    refreshTokens();
+  const pdaStr = storagePDA.toBase58();
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(pdaStr);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="card-elevated p-6">
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-bold text-gray-900">Balances</h2>
+    <div className="card-elevated p-6 space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <Wallet className="text-primary" size={18} />
+          SOL Balance
+        </h2>
         <button
-          onClick={handleRefresh}
-          disabled={isLoadingSOL || isLoadingTokens}
+          onClick={() => refresh()}
+          disabled={isLoading}
           className="text-gray-400 hover:text-primary transition-colors disabled:opacity-50"
-          title="Refresh balances"
+          title="Refresh balance"
         >
-          <RefreshCw
-            size={18}
-            className={isLoadingSOL || isLoadingTokens ? 'animate-spin' : ''}
-          />
+          <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
         </button>
       </div>
 
-      <div className="space-y-4">
-        {/* SOL Balance */}
-        <div className="bg-gray-50/80 rounded-xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary-50 rounded-lg flex items-center justify-center">
-              <Wallet className="text-primary" size={20} />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">
-                SOL Balance
-              </p>
-              <p className="text-lg font-bold text-gray-900">
-                {isLoadingSOL ? (
-                  <span className="text-gray-400">Loading...</span>
-                ) : (
-                  formatSOL(balance)
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Token Balances */}
-        {(isLoadingTokens || tokenAccounts.length > 0) && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Coins className="text-gray-400" size={16} />
-              <h3 className="text-sm font-semibold text-gray-700">SPL Tokens</h3>
-            </div>
-
-            {isLoadingTokens ? (
-              <div className="bg-gray-50/80 rounded-xl p-4 text-center text-sm text-gray-400">
-                Loading tokens...
-              </div>
-            ) : tokenAccounts.length === 0 ? (
-              <div className="bg-gray-50/80 rounded-xl p-4 text-center text-sm text-gray-500">
-                No tokens found
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {tokenAccounts.map((token, index) => (
-                  <div
-                    key={index}
-                    className="bg-gray-50/80 rounded-lg p-3 flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="font-mono text-xs text-gray-600">
-                        {formatAddress(token.mint.toBase58(), 6)}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        Decimals: {token.decimals}
-                      </p>
-                    </div>
-                    <p className="font-semibold text-gray-900">
-                      {formatTokenAmount(token.balance, token.decimals)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* PDA Address */}
-        <div className="pt-4 border-t border-gray-100">
-          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">
-            Storage PDA
-          </p>
-          <p className="font-mono text-xs text-gray-600 break-all bg-gray-100 rounded-lg px-3 py-2">
-            {storagePDA.toBase58()}
-          </p>
-          <p className="text-xs text-gray-400 mt-2">
-            Send SOL or SPL tokens to this address to distribute them
-          </p>
-        </div>
+      {/* Balance */}
+      <div className="bg-linear-to-br from-primary-50 to-orange-50/30 border border-primary-100/60 rounded-xl p-4">
+        <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Available</p>
+        <p className="text-3xl font-bold text-gray-900 tabular-nums">
+          {isLoading ? <span className="text-gray-300 text-2xl">—</span> : formatSOL(balance)}
+        </p>
       </div>
+
+      {/* Deposit address */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <ArrowDownToLine className="text-gray-400" size={13} />
+          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Deposit Address</p>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="w-full text-left bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 group transition-colors"
+        >
+          <p className="font-mono text-[11px] text-gray-600 truncate">{pdaStr}</p>
+          {copied
+            ? <Check size={13} className="text-green-500 shrink-0" />
+            : <Copy size={13} className="text-gray-400 group-hover:text-primary shrink-0 transition-colors" />}
+        </button>
+        <p className="text-xs text-gray-400 mt-1.5">Send SOL to this address to fund distribution</p>
+      </div>
+
+      {/* Action slot */}
+      {children && (
+        <div className="border-t border-gray-100 pt-4">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

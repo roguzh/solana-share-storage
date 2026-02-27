@@ -29,18 +29,15 @@ export function useTokenAccounts(owner: PublicKey | null) {
         const mint = new PublicKey(parsedInfo.mint);
         const balance = BigInt(parsedInfo.tokenAmount.amount);
 
-        // Only include accounts with non-zero balance
-        if (balance > BigInt(0)) {
-          try {
-            const mintInfo = await getMint(connection, mint);
-            accounts.push({
-              mint,
-              balance,
-              decimals: mintInfo.decimals,
-            });
-          } catch (err) {
-            console.error('Error fetching mint info:', err);
-          }
+        try {
+          const mintInfo = await getMint(connection, mint);
+          accounts.push({
+            mint,
+            balance,
+            decimals: mintInfo.decimals,
+          });
+        } catch (err) {
+          console.error('Error fetching mint info:', err);
         }
       }
 

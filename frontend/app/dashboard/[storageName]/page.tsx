@@ -276,13 +276,9 @@ export default function StorageDetailPage({
             </div>
           </div>
 
-          {/* Right Column - Balance & Actions */}
+          {/* Right Column - SOL Balance + Distribute */}
           <div className="space-y-6">
-            {/* SOL Balance + Distribute SOL */}
-            <BalanceDisplay storagePDA={storage.pda} />
-
-            <div className="card-elevated p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">SOL Distribution</h2>
+            <BalanceDisplay storagePDA={storage.pda}>
               <DistributeSOLButton
                 storageName={storage.name}
                 storagePDA={storage.pda}
@@ -290,7 +286,7 @@ export default function StorageDetailPage({
                 enabled={storage.enabled}
                 onSuccess={refresh}
               />
-            </div>
+            </BalanceDisplay>
           </div>
         </div>
 
