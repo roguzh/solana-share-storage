@@ -1,8 +1,10 @@
+'use client';
+
 import { Header } from '@/components/layout/Header';
 import Link from 'next/link';
 import { ExternalLink, ArrowRight, Check } from 'lucide-react';
-import { DEFAULT_NETWORK, getExplorerUrl } from '@/config/networks';
-import { PROGRAM_ID } from '@/config/networks';
+import { getExplorerUrl, PROGRAM_ID } from '@/config/networks';
+import { useNetwork } from '@/context/NetworkContext';
 
 const useCases = [
   {
@@ -36,14 +38,16 @@ const features = [
   { label: 'Open distribution', desc: 'Anyone can trigger distribution (pull-based)' },
 ];
 
-const techInfo = [
-  { label: 'Network', value: DEFAULT_NETWORK, capitalize: true },
-  { label: 'Framework', value: 'Anchor v0.31.1' },
-  { label: 'Frontend', value: 'Next.js 15 + TypeScript' },
-];
-
 export default function About() {
-  const programExplorerUrl = getExplorerUrl(PROGRAM_ID, 'address', DEFAULT_NETWORK);
+  const { network } = useNetwork();
+
+  const techInfo = [
+    { label: 'Network', value: network, capitalize: true },
+    { label: 'Framework', value: 'Anchor v0.31.1' },
+    { label: 'Frontend', value: 'Next.js 15 + TypeScript' },
+  ];
+
+  const programExplorerUrl = getExplorerUrl(PROGRAM_ID, 'address', network);
 
   return (
     <div className="min-h-screen bg-background">

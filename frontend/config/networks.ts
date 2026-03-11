@@ -1,6 +1,6 @@
 import { clusterApiUrl } from '@solana/web3.js';
 
-export type Network = 'devnet' | 'mainnet' | 'testnet';
+export type Network = 'devnet' | 'mainnet';
 
 export interface NetworkConfig {
   name: Network;
@@ -20,12 +20,6 @@ export const NETWORKS: Record<Network, NetworkConfig> = {
     name: 'mainnet',
     label: 'Mainnet Beta',
     rpcEndpoint: process.env.NEXT_PUBLIC_MAINNET_RPC || clusterApiUrl('mainnet-beta'),
-    explorerUrl: 'https://explorer.solana.com',
-  },
-  testnet: {
-    name: 'testnet',
-    label: 'Testnet',
-    rpcEndpoint: clusterApiUrl('testnet'),
     explorerUrl: 'https://explorer.solana.com',
   },
 };

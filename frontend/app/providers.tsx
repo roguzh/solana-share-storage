@@ -1,6 +1,5 @@
 "use client";
 
-import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import {
   ConnectionProvider,
   WalletProvider,
@@ -13,28 +12,33 @@ import {
 import { useMemo } from "react";
 import { SWRConfig } from "swr";
 import { swrConfig } from "@/config/swr";
-import { DEFAULT_NETWORK, NETWORKS } from "@/config/networks";
+import { NetworkProvider, useNetwork } from "@/context/NetworkContext";
 
-// Import wallet adapter CSS
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  // Get RPC endpoint for current network
-  const endpoint = useMemo(() => NETWORKS[DEFAULT_NETWORK].rpcEndpoint, []);
+function InnerProviders({ children }: { children: React.ReactNode }) {
+  const { rpcEndpoint } = useNetwork();
 
-  // Configure wallet adapters
   const wallets = useMemo(
     () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    [],
+    []
   );
 
   return (
-    <ConnectionProvider endpoint={endpoint}>
+    <ConnectionProvider endpoint={rpcEndpoint}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
           <SWRConfig value={swrConfig}>{children}</SWRConfig>
         </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
+  );
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <NetworkProvider>
+      <InnerProviders>{children}</InnerProviders>
+    </NetworkProvider>
   );
 }

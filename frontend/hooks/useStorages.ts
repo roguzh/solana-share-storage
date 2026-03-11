@@ -2,18 +2,19 @@ import useSWR from 'swr';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { EnhancedRoyaltiesSDK } from '@/lib/solana/sdk';
-import { DEFAULT_NETWORK, NETWORKS } from '@/config/networks';
+import { useNetwork } from '@/context/NetworkContext';
 import type { StorageWithPDA } from '@/types/program';
 
 export function useStorages() {
   const { publicKey } = useWallet();
+  const { network, rpcEndpoint } = useNetwork();
 
   const { data, error, isLoading, mutate } = useSWR(
-    publicKey ? ['storages', publicKey.toBase58()] : null,
+    publicKey ? ['storages', publicKey.toBase58(), network] : null,
     async () => {
       if (!publicKey) return [];
 
-      const sdk = new EnhancedRoyaltiesSDK(NETWORKS[DEFAULT_NETWORK].rpcEndpoint);
+      const sdk = new EnhancedRoyaltiesSDK(rpcEndpoint);
       const accounts = await sdk.getShareStoragesByAdmin(publicKey);
 
       return accounts.map((acc: any) => ({

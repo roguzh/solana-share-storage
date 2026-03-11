@@ -6,8 +6,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useTransaction } from '@/hooks/useTransaction';
-import { EnhancedRoyaltiesSDK } from '@/lib/solana/sdk';
-import { DEFAULT_NETWORK, NETWORKS } from '@/config/networks';
+import { useEnhancedRoyaltiesSDK } from '@/hooks/useEnhancedRoyaltiesSDK';
 import { validateStorageName } from '@/lib/utils/validation';
 import { parseProgramError } from '@/lib/utils/errors';
 
@@ -19,12 +18,13 @@ interface CreateStorageModalProps {
 
 export function CreateStorageModal({ isOpen, onClose, onSuccess }: CreateStorageModalProps) {
   const { publicKey } = useWallet();
+  const sdk = useEnhancedRoyaltiesSDK();
   const { executeTransaction, isLoading } = useTransaction();
   const [name, setName] = useState('');
   const [error, setError] = useState('');
 
   const handleCreate = async () => {
-    if (!publicKey) return;
+    if (!publicKey || !sdk) return;
 
     // Validate name
     const validation = validateStorageName(name);
@@ -35,9 +35,8 @@ export function CreateStorageModal({ isOpen, onClose, onSuccess }: CreateStorage
 
     try {
       setError('');
-      const sdk = new EnhancedRoyaltiesSDK(NETWORKS[DEFAULT_NETWORK].rpcEndpoint);
 
-      const tx = await sdk.initShareStorageTransaction({
+      const tx = await sdk!.initShareStorageTransaction({
         storageName: name,
         initiator: publicKey,
       });

@@ -1,12 +1,38 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
 import { WalletButton } from '@/components/wallet/WalletButton';
-import { DEFAULT_NETWORK } from '@/config/networks';
+import { NETWORKS, type Network } from '@/config/networks';
+import { useNetwork } from '@/context/NetworkContext';
+
+const NETWORK_STYLES: Record<Network, string> = {
+  mainnet: 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200',
+  devnet:  'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
+};
+
+const NETWORK_DOT: Record<Network, string> = {
+  mainnet: 'bg-green-500',
+  devnet:  'bg-amber-500',
+};
 
 export function Header() {
   const pathname = usePathname();
+  const { network, setNetwork } = useNetwork();
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard' },
@@ -47,19 +73,49 @@ export function Header() {
             ))}
           </div>
 
-          {/* Network Badge & Wallet */}
+          {/* Network Switcher & Wallet */}
           <div className="flex items-center gap-3">
-            <span className={`
-              px-3 py-1 text-xs font-semibold rounded-full uppercase tracking-wide
-              ${DEFAULT_NETWORK === 'mainnet'
-                ? 'bg-green-100 text-green-700 border border-green-200'
-                : DEFAULT_NETWORK === 'devnet'
-                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                : 'bg-blue-50 text-blue-700 border border-blue-200'
-              }
-            `}>
-              {DEFAULT_NETWORK}
-            </span>
+            <div ref={dropdownRef} className="relative">
+              <button
+                onClick={() => setOpen((v) => !v)}
+                className={`
+                  flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full
+                  uppercase tracking-wide border transition-colors cursor-pointer
+                  ${NETWORK_STYLES[network]}
+                `}
+              >
+                {network}
+                <ChevronDown
+                  size={12}
+                  className={`transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {open && (
+                <div className="absolute right-0 mt-1.5 w-36 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
+                  {(Object.keys(NETWORKS) as Network[]).map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => { setNetwork(n); setOpen(false); }}
+                      className={`
+                        w-full flex items-center justify-between px-3 py-2.5 text-xs font-semibold
+                        uppercase tracking-wide transition-colors
+                        ${n === network
+                          ? 'bg-gray-50 text-gray-900'
+                          : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                        }
+                      `}
+                    >
+                      {NETWORKS[n].label}
+                      {n === network && (
+                        <span className={`w-1.5 h-1.5 rounded-full ${NETWORK_DOT[n]}`} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <WalletButton />
           </div>
         </div>

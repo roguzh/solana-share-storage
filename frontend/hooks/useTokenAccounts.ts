@@ -1,7 +1,8 @@
 import useSWR from 'swr';
 import { PublicKey } from '@solana/web3.js';
-import { getAccount, getMint } from '@solana/spl-token';
-import { getConnection } from '@/lib/solana/connection';
+import { getMint } from '@solana/spl-token';
+import { useConnection } from '@solana/wallet-adapter-react';
+import { useNetwork } from '@/context/NetworkContext';
 
 export interface TokenAccountInfo {
   mint: PublicKey;
@@ -11,10 +12,12 @@ export interface TokenAccountInfo {
 }
 
 export function useTokenAccounts(owner: PublicKey | null) {
+  const { connection } = useConnection();
+  const { network } = useNetwork();
+
   const { data, error, isLoading, mutate } = useSWR(
-    owner ? ['token-accounts', owner.toBase58()] : null,
+    owner ? ['token-accounts', owner.toBase58(), network] : null,
     async ([_, ownerStr]) => {
-      const connection = getConnection();
       const ownerPubkey = new PublicKey(ownerStr);
 
       // Get all token accounts for the owner

@@ -2,8 +2,8 @@ import useSWR from 'swr';
 import { PublicKey } from '@solana/web3.js';
 import { getMint } from '@solana/spl-token';
 import { EnhancedRoyaltiesSDK } from '@/lib/solana/sdk';
-import { DEFAULT_NETWORK, NETWORKS } from '@/config/networks';
-import { getConnection } from '@/lib/solana/connection';
+import { useConnection } from '@solana/wallet-adapter-react';
+import { useNetwork } from '@/context/NetworkContext';
 
 export interface TokenDistributionRecord {
   mint: PublicKey;
@@ -19,16 +19,19 @@ export interface TokenDistributionRecord {
  * has ever been distributed — regardless of the current ATA balance.
  */
 export function useTokenDistributionRecords(storagePDA: PublicKey | null) {
+  const { connection } = useConnection();
+  const { network, rpcEndpoint } = useNetwork();
+
   const { data, isLoading, mutate } = useSWR(
-    storagePDA ? ['token-dist-records', storagePDA.toBase58()] : null,
+    storagePDA ? ['token-dist-records', storagePDA.toBase58(), network] : null,
     async () => {
       if (!storagePDA) return [];
 
-      const sdk = new EnhancedRoyaltiesSDK(NETWORKS[DEFAULT_NETWORK].rpcEndpoint);
-      const connection = getConnection();
+      const sdk = new EnhancedRoyaltiesSDK(rpcEndpoint);
 
       // Fetch all TokenDistributionRecord PDAs whose shareStorage == storagePDA
       // Layout: [8 discriminator][32 shareStorage][32 mint][8 totalDistributed][8 lastDistributedAt]
+      // connection comes from wallet adapter's ConnectionProvider (tracks selected network)
       const allRecords = await sdk.program.account.tokenDistributionRecord.all([
         {
           memcmp: {
