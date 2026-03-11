@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
 import { Header } from '@/components/layout/Header';
 import { useStorages } from '@/hooks/useStorages';
 import { useAuth } from '@/hooks/useAuth';
+import { useBalance } from '@/hooks/useBalance';
 import { Button } from '@/components/ui/Button';
 import {
   Plus,
@@ -20,6 +22,31 @@ import {
 import Link from 'next/link';
 import { formatAddress, formatSOL, formatDate } from '@/lib/utils/format';
 import { CreateStorageModal } from '@/components/storage/CreateStorageModal';
+
+function StorageCardBalance({ pda }: { pda: PublicKey }) {
+  const { distributableBalance, isLoading } = useBalance(pda);
+  const hasDistributable = distributableBalance > 0;
+
+  if (isLoading) {
+    return <div className="h-3.5 w-20 bg-gray-100 rounded animate-pulse" />;
+  }
+
+  return (
+    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-semibold tabular-nums ${
+      hasDistributable
+        ? 'bg-primary-50 text-primary'
+        : 'bg-gray-100 text-gray-400'
+    }`}>
+      {hasDistributable && (
+        <span className="relative flex h-1.5 w-1.5 shrink-0">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
+        </span>
+      )}
+      {formatSOL(distributableBalance)}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { connected } = useWallet();
@@ -202,6 +229,14 @@ export default function Dashboard() {
                         <span className="text-[11px] text-gray-400">
                           {formatDate(storage.lastDistributedAt)}
                         </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-gray-500">
+                          <Wallet size={12} />
+                          <span className="text-xs">Available</span>
+                        </div>
+                        <StorageCardBalance pda={storage.pda} />
                       </div>
                     </div>
 

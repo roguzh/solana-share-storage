@@ -8,15 +8,15 @@ import { RefreshCw, Wallet, Copy, Check, ArrowDownToLine } from 'lucide-react';
 
 interface BalanceDisplayProps {
   storagePDA: PublicKey;
-  /** Optional action rendered below the deposit address (e.g. DistributeSOLButton) */
   children?: ReactNode;
 }
 
 export function BalanceDisplay({ storagePDA, children }: BalanceDisplayProps) {
-  const { balance, isLoading, refresh } = useBalance(storagePDA);
+  const { balance, distributableBalance, isLoading, refresh } = useBalance(storagePDA);
   const [copied, setCopied] = useState(false);
 
   const pdaStr = storagePDA.toBase58();
+  const hasDistributable = distributableBalance > 0;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(pdaStr);
@@ -42,12 +42,38 @@ export function BalanceDisplay({ storagePDA, children }: BalanceDisplayProps) {
         </button>
       </div>
 
-      {/* Balance */}
-      <div className="bg-linear-to-br from-primary-50 to-orange-50/30 border border-primary-100/60 rounded-xl p-4">
-        <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Available</p>
-        <p className="text-3xl font-bold text-gray-900 tabular-nums">
-          {isLoading ? <span className="text-gray-300 text-2xl">—</span> : formatSOL(balance)}
+      {/* Distributable amount — highlighted when ready */}
+      <div
+        className={`rounded-xl p-4 border transition-all duration-300 ${
+          hasDistributable
+            ? 'bg-linear-to-br from-primary-50 to-orange-50/40 border-primary/30 shadow-sm shadow-primary/10'
+            : 'bg-gray-50 border-gray-200'
+        }`}
+      >
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs uppercase tracking-wide font-semibold text-gray-500">
+            Available to Distribute
+          </p>
+          {hasDistributable && (
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-wide">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </span>
+              Ready
+            </span>
+          )}
+        </div>
+        <p className={`text-3xl font-bold tabular-nums ${hasDistributable ? 'text-primary' : 'text-gray-400'}`}>
+          {isLoading
+            ? <span className="text-gray-300 text-2xl">—</span>
+            : formatSOL(distributableBalance)}
         </p>
+        {!isLoading && balance > 0 && (
+          <p className="text-xs text-gray-400 mt-1.5">
+            Total on-chain: {formatSOL(balance)}
+          </p>
+        )}
       </div>
 
       {/* Deposit address */}
