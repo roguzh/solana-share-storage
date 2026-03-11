@@ -330,6 +330,8 @@ pub fn distribute_tokens<'info>(
         tokens_distributed += remainder;
     }
 
+    let now = Clock::get()?.unix_timestamp;
+
     // Update token distribution record
     let record = &mut ctx.accounts.token_distribution_record;
     record.share_storage = ctx.accounts.share_storage.key();
@@ -338,11 +340,11 @@ pub fn distribute_tokens<'info>(
         .total_distributed
         .checked_add(tokens_distributed)
         .ok_or(ErrorCode::ArithmeticOverflow)?;
-    record.last_distributed_at = Clock::get()?.unix_timestamp;
+    record.last_distributed_at = now;
 
     // Update share storage timestamp
     let share_storage = &mut ctx.accounts.share_storage;
-    share_storage.last_distributed_at = Clock::get()?.unix_timestamp;
+    share_storage.last_distributed_at = now;
 
     Ok(())
 }

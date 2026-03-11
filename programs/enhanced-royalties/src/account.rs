@@ -94,6 +94,4 @@ pub enum ErrorCode {
     InvalidTokenOwner,
     #[msg("Token account is frozen.")]
     TokenAccountFrozen,
-    #[msg("Missing required accounts for token distribution.")]
-    MissingTokenDistributionAccounts,
 }

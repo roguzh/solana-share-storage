@@ -2,6 +2,7 @@ import { Program } from "@coral-xyz/anchor";
 import { clusterApiUrl, Connection, PublicKey, Transaction } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   getAssociatedTokenAddress,
   createAssociatedTokenAccountIdempotentInstruction,
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -22,6 +23,16 @@ export class EnhancedRoyaltiesSDK {
     this.program = new Program(idl as EnhancedRoyaltiesIDL, {
       connection: this.connection,
     });
+  }
+
+  /**
+   * Resolve the token program owning a given mint (SPL Token or Token-2022).
+   */
+  async resolveTokenProgram(mint: PublicKey): Promise<PublicKey> {
+    const mintInfo = await this.connection.getAccountInfo(mint);
+    if (!mintInfo) throw new Error(`Mint account not found: ${mint.toBase58()}`);
+    if (mintInfo.owner.equals(TOKEN_2022_PROGRAM_ID)) return TOKEN_2022_PROGRAM_ID;
+    return TOKEN_PROGRAM_ID;
   }
 
   /**
@@ -153,10 +164,12 @@ export class EnhancedRoyaltiesSDK {
     payer: PublicKey;
   }): Promise<Transaction> {
     const [shareStoragePda] = this.deriveShareStoragePDA(admin, shareStorageName);
+    const tokenProgram = await this.resolveTokenProgram(tokenMint);
     const storageAta = await getAssociatedTokenAddress(
       tokenMint,
       shareStoragePda,
-      true // allowOwnerOffCurve — PDA as owner
+      true, // allowOwnerOffCurve — PDA as owner
+      tokenProgram
     );
 
     const ix = createAssociatedTokenAccountIdempotentInstruction(
@@ -164,7 +177,7 @@ export class EnhancedRoyaltiesSDK {
       storageAta,      // ATA to create
       shareStoragePda, // owner
       tokenMint,
-      TOKEN_PROGRAM_ID,
+      tokenProgram,
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
@@ -181,7 +194,8 @@ export class EnhancedRoyaltiesSDK {
     tokenMint: PublicKey
   ): Promise<PublicKey> {
     const [shareStoragePda] = this.deriveShareStoragePDA(admin, shareStorageName);
-    return getAssociatedTokenAddress(tokenMint, shareStoragePda, true);
+    const tokenProgram = await this.resolveTokenProgram(tokenMint);
+    return getAssociatedTokenAddress(tokenMint, shareStoragePda, true, tokenProgram);
   }
 
   /**
@@ -205,11 +219,14 @@ export class EnhancedRoyaltiesSDK {
       tokenMint
     );
 
+    const tokenProgram = await this.resolveTokenProgram(tokenMint);
+
     // Storage ATA (must already exist — created via createStorageTokenAccountTransaction)
     const storageTokenAccount = await getAssociatedTokenAddress(
       tokenMint,
       shareStoragePda,
-      true
+      true,
+      tokenProgram
     );
 
     // Fetch holders from on-chain storage
@@ -218,7 +235,7 @@ export class EnhancedRoyaltiesSDK {
     // Derive holder token accounts (ATAs)
     const holderTokenAccounts = await Promise.all(
       holders.map((holder: ShareHolder) =>
-        getAssociatedTokenAddress(tokenMint, holder.pubkey)
+        getAssociatedTokenAddress(tokenMint, holder.pubkey, false, tokenProgram)
       )
     );
 
@@ -231,7 +248,7 @@ export class EnhancedRoyaltiesSDK {
           holderTokenAccounts[i],
           holders[i].pubkey,
           tokenMint,
-          TOKEN_PROGRAM_ID,
+          tokenProgram,
           ASSOCIATED_TOKEN_PROGRAM_ID
         )
       );
@@ -241,7 +258,7 @@ export class EnhancedRoyaltiesSDK {
       shareStorage: shareStoragePda,
       tokenMint,
       tokenAccount: storageTokenAccount,
-      tokenProgram: TOKEN_PROGRAM_ID,
+      tokenProgram,
       tokenDistributionRecord,
       payer: admin,
       systemProgram: anchor.web3.SystemProgram.programId,
