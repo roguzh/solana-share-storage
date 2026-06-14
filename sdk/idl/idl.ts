@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/enhanced_royalties.json`.
  */
 export type EnhancedRoyalties = {
-  "address": "AnjNX2EMg7CxBNmc2rod1ViHJiUx5WjNCFvsfwKVauL4",
+  "address": "9B6FPPgiuSdD4wJauWWtvYas4xK4eBQypKjDZDRw2ft9",
   "metadata": {
     "name": "enhancedRoyalties",
     "version": "0.1.0",
@@ -81,19 +81,19 @@ export type EnhancedRoyalties = {
       ]
     },
     {
-      "name": "distributeShare",
+      "name": "distributeSol",
       "docs": [
-        "Distribute all available shares to holders"
+        "Distribute SOL from share storage to holders"
       ],
       "discriminator": [
-        67,
-        146,
-        65,
-        210,
-        255,
-        48,
-        2,
-        187
+        234,
+        85,
+        98,
+        176,
+        165,
+        8,
+        133,
+        95
       ],
       "accounts": [
         {
@@ -131,6 +131,173 @@ export type EnhancedRoyalties = {
               }
             ]
           }
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "distributeTokens",
+      "docs": [
+        "Distribute SPL tokens from share storage to holders"
+      ],
+      "discriminator": [
+        105,
+        69,
+        130,
+        52,
+        196,
+        28,
+        176,
+        120
+      ],
+      "accounts": [
+        {
+          "name": "shareStorage",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  101,
+                  95,
+                  115,
+                  116,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "share_storage.admin",
+                "account": "shareStorage"
+              },
+              {
+                "kind": "account",
+                "path": "share_storage.name",
+                "account": "shareStorage"
+              }
+            ]
+          }
+        },
+        {
+          "name": "tokenMint"
+        },
+        {
+          "name": "tokenAccount",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "shareStorage"
+              },
+              {
+                "kind": "account",
+                "path": "tokenProgram"
+              },
+              {
+                "kind": "account",
+                "path": "tokenMint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "tokenProgram"
+        },
+        {
+          "name": "tokenDistributionRecord",
+          "docs": [
+            "Token distribution record - tracks per-mint distribution stats",
+            "Created on first distribution for this mint"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  107,
+                  101,
+                  110,
+                  95,
+                  100,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "shareStorage"
+              },
+              {
+                "kind": "account",
+                "path": "tokenMint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
         },
         {
           "name": "systemProgram",
@@ -275,8 +442,50 @@ export type EnhancedRoyalties = {
         {
           "name": "name",
           "type": "string"
+        },
+        {
+          "name": "parent",
+          "type": {
+            "option": "pubkey"
+          }
         }
       ]
+    },
+    {
+      "name": "migrateStorage",
+      "docs": [
+        "Migrate a pre-SPL ShareStorage account to the current on-chain format"
+      ],
+      "discriminator": [
+        77,
+        81,
+        104,
+        126,
+        43,
+        127,
+        211,
+        101
+      ],
+      "accounts": [
+        {
+          "name": "shareStorage",
+          "writable": true
+        },
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
     },
     {
       "name": "setHolders",
@@ -369,6 +578,19 @@ export type EnhancedRoyalties = {
         208,
         123
       ]
+    },
+    {
+      "name": "tokenDistributionRecord",
+      "discriminator": [
+        250,
+        168,
+        237,
+        64,
+        125,
+        140,
+        236,
+        222
+      ]
     }
   ],
   "errors": [
@@ -410,7 +632,7 @@ export type EnhancedRoyalties = {
     {
       "code": 6007,
       "name": "invalidName",
-      "msg": "Invalid name. Name must be between 1 and 32 characters."
+      "msg": "Invalid name. Name must be between 1 and 32 bytes."
     },
     {
       "code": 6008,
@@ -431,6 +653,41 @@ export type EnhancedRoyalties = {
       "code": 6011,
       "name": "arithmeticOverflow",
       "msg": "Arithmetic overflow occurred."
+    },
+    {
+      "code": 6012,
+      "name": "invalidTokenMint",
+      "msg": "Invalid token account: wrong mint."
+    },
+    {
+      "code": 6013,
+      "name": "invalidTokenOwner",
+      "msg": "Invalid token account: wrong owner."
+    },
+    {
+      "code": 6014,
+      "name": "tokenAccountFrozen",
+      "msg": "Token account is frozen."
+    },
+    {
+      "code": 6015,
+      "name": "parentAdminMismatch",
+      "msg": "Sub-storage admin must match parent admin."
+    },
+    {
+      "code": 6016,
+      "name": "invalidParentAccount",
+      "msg": "Parent storage account not found or invalid."
+    },
+    {
+      "code": 6017,
+      "name": "alreadyMigrated",
+      "msg": "Account is already in the new format."
+    },
+    {
+      "code": 6018,
+      "name": "invalidMigration",
+      "msg": "Account data is invalid for migration."
     }
   ],
   "types": [
@@ -446,6 +703,10 @@ export type EnhancedRoyalties = {
           {
             "name": "shareBasisPoints",
             "type": "u16"
+          },
+          {
+            "name": "isStorage",
+            "type": "bool"
           }
         ]
       }
@@ -484,6 +745,36 @@ export type EnhancedRoyalties = {
                 }
               }
             }
+          },
+          {
+            "name": "parent",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "tokenDistributionRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "shareStorage",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "totalDistributed",
+            "type": "u64"
+          },
+          {
+            "name": "lastDistributedAt",
+            "type": "i64"
           }
         ]
       }

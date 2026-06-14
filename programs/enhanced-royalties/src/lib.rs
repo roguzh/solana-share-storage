@@ -12,13 +12,17 @@ pub mod enhanced_royalties {
     use super::*;
 
     /// Initialize a new ShareStorage account with a name
-    pub fn initialize_share_storage(ctx: Context<InitializeShareStorage>, name: String) -> Result<()> {
-        instructions::initialize_share_storage(ctx, name)
+    pub fn initialize_share_storage<'info>(
+        ctx: Context<'_, '_, 'info, 'info, InitializeShareStorage<'info>>,
+        name: String,
+        parent: Option<Pubkey>,
+    ) -> Result<()> {
+        instructions::initialize_share_storage(ctx, name, parent)
     }
 
     /// Set all holders for the ShareStorage (replaces existing holders)
-    pub fn set_holders(
-        ctx: Context<SetHolders>,
+    pub fn set_holders<'info>(
+        ctx: Context<'_, '_, 'info, 'info, SetHolders<'info>>,
         name: String,
         holders: Vec<account::ShareHolder>,
     ) -> Result<()> {
@@ -39,6 +43,11 @@ pub mod enhanced_royalties {
         name: String,
     ) -> Result<()> {
         instructions::distribute_tokens(ctx, name)
+    }
+
+    /// Migrate a pre-SPL ShareStorage account to the current on-chain format
+    pub fn migrate_storage(ctx: Context<MigrateStorage>) -> Result<()> {
+        instructions::migrate_storage(ctx)
     }
 
     /// Enable the ShareStorage (admin only)

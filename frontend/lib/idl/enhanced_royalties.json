@@ -436,8 +436,50 @@
         {
           "name": "name",
           "type": "string"
+        },
+        {
+          "name": "parent",
+          "type": {
+            "option": "pubkey"
+          }
         }
       ]
+    },
+    {
+      "name": "migrate_storage",
+      "docs": [
+        "Migrate a pre-SPL ShareStorage account to the current on-chain format"
+      ],
+      "discriminator": [
+        77,
+        81,
+        104,
+        126,
+        43,
+        127,
+        211,
+        101
+      ],
+      "accounts": [
+        {
+          "name": "share_storage",
+          "writable": true
+        },
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
     },
     {
       "name": "set_holders",
@@ -584,7 +626,7 @@
     {
       "code": 6007,
       "name": "InvalidName",
-      "msg": "Invalid name. Name must be between 1 and 32 characters."
+      "msg": "Invalid name. Name must be between 1 and 32 bytes."
     },
     {
       "code": 6008,
@@ -623,8 +665,23 @@
     },
     {
       "code": 6015,
-      "name": "MissingTokenDistributionAccounts",
-      "msg": "Missing required accounts for token distribution."
+      "name": "ParentAdminMismatch",
+      "msg": "Sub-storage admin must match parent admin."
+    },
+    {
+      "code": 6016,
+      "name": "InvalidParentAccount",
+      "msg": "Parent storage account not found or invalid."
+    },
+    {
+      "code": 6017,
+      "name": "AlreadyMigrated",
+      "msg": "Account is already in the new format."
+    },
+    {
+      "code": 6018,
+      "name": "InvalidMigration",
+      "msg": "Account data is invalid for migration."
     }
   ],
   "types": [
@@ -640,6 +697,10 @@
           {
             "name": "share_basis_points",
             "type": "u16"
+          },
+          {
+            "name": "is_storage",
+            "type": "bool"
           }
         ]
       }
@@ -677,6 +738,12 @@
                   "name": "ShareHolder"
                 }
               }
+            }
+          },
+          {
+            "name": "parent",
+            "type": {
+              "option": "pubkey"
             }
           }
         ]

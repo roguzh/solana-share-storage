@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 pub struct ShareHolder {
     pub pubkey: Pubkey,
     pub share_basis_points: u16, // Out of 10,000 basis points (100%)
+    pub is_storage: bool,
 }
 
 #[account]
@@ -26,40 +27,11 @@ pub struct ShareStorage {
     pub total_distributed: u64,
     #[max_len(16)]
     pub holders: Vec<ShareHolder>,
+    pub parent: Option<Pubkey>,
 }
 
 impl ShareStorage {
     pub const MAX_HOLDERS: usize = 16;
-    
-    pub fn is_admin(&self, pubkey: &Pubkey) -> bool {
-        self.admin == *pubkey
-    }
-    
-    pub fn add_holder(&mut self, holder: ShareHolder) -> Result<()> {
-        require!(self.holders.len() < Self::MAX_HOLDERS, ErrorCode::TooManyHolders);
-        
-        // Check if holder already exists
-        for existing_holder in &self.holders {
-            require!(existing_holder.pubkey != holder.pubkey, ErrorCode::HolderAlreadyExists);
-        }
-        
-        self.holders.push(holder);
-        Ok(())
-    }
-    
-    pub fn remove_holder(&mut self, pubkey: &Pubkey) -> Result<()> {
-        let index = self.holders
-            .iter()
-            .position(|h| h.pubkey == *pubkey)
-            .ok_or(ErrorCode::HolderNotFound)?;
-        
-        self.holders.remove(index);
-        Ok(())
-    }
-    
-    pub fn total_basis_points(&self) -> u16 {
-        self.holders.iter().map(|h| h.share_basis_points).sum()
-    }
 }
 
 #[error_code]
@@ -78,7 +50,7 @@ pub enum ErrorCode {
     InvalidShareDistribution,
     #[msg("Insufficient funds for distribution.")]
     InsufficientFunds,
-    #[msg("Invalid name. Name must be between 1 and 32 characters.")]
+    #[msg("Invalid name. Name must be between 1 and 32 bytes.")]
     InvalidName,
     #[msg("No holders available for distribution.")]
     NoHolders,
@@ -94,4 +66,12 @@ pub enum ErrorCode {
     InvalidTokenOwner,
     #[msg("Token account is frozen.")]
     TokenAccountFrozen,
+    #[msg("Sub-storage admin must match parent admin.")]
+    ParentAdminMismatch,
+    #[msg("Parent storage account not found or invalid.")]
+    InvalidParentAccount,
+    #[msg("Account is already in the new format.")]
+    AlreadyMigrated,
+    #[msg("Account data is invalid for migration.")]
+    InvalidMigration,
 }

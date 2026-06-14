@@ -4,7 +4,10 @@
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "cli": "ts-node cli.ts",
-    "build:cli": "tsc cli.ts --outDir dist --module commonjs --esModuleInterop --skipLibCheck --resolveJsonModule && pkg dist/cli.js -t node18-win-x64 -o dist/royalties-cli-win.exe"
+    "build:cli": "tsc cli.ts --outDir dist --module commonjs --esModuleInterop --skipLibCheck --resolveJsonModule && pkg dist/cli.js -t node18-win-x64 -o dist/royalties-cli-win.exe",
+    "migrate": "ts-node -P tsconfig.json scripts/migrate.ts",
+    "migrate:dry": "ts-node -P tsconfig.json scripts/migrate.ts --dry-run",
+    "test:substorage": "ts-node -P tsconfig.json scripts/test-substorage.ts"
   },
   "pkg": {
     "assets": [

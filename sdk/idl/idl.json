@@ -75,19 +75,19 @@
       ]
     },
     {
-      "name": "distribute_share",
+      "name": "distribute_sol",
       "docs": [
-        "Distribute all available shares to holders"
+        "Distribute SOL from share storage to holders"
       ],
       "discriminator": [
-        67,
-        146,
-        65,
-        210,
-        255,
-        48,
-        2,
-        187
+        234,
+        85,
+        98,
+        176,
+        165,
+        8,
+        133,
+        95
       ],
       "accounts": [
         {
@@ -125,6 +125,173 @@
               }
             ]
           }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "distribute_tokens",
+      "docs": [
+        "Distribute SPL tokens from share storage to holders"
+      ],
+      "discriminator": [
+        105,
+        69,
+        130,
+        52,
+        196,
+        28,
+        176,
+        120
+      ],
+      "accounts": [
+        {
+          "name": "share_storage",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  97,
+                  114,
+                  101,
+                  95,
+                  115,
+                  116,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "share_storage.admin",
+                "account": "ShareStorage"
+              },
+              {
+                "kind": "account",
+                "path": "share_storage.name",
+                "account": "ShareStorage"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_mint"
+        },
+        {
+          "name": "token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "share_storage"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "token_distribution_record",
+          "docs": [
+            "Token distribution record - tracks per-mint distribution stats",
+            "Created on first distribution for this mint"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  111,
+                  107,
+                  101,
+                  110,
+                  95,
+                  100,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "share_storage"
+              },
+              {
+                "kind": "account",
+                "path": "token_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
         },
         {
           "name": "system_program",
@@ -269,8 +436,50 @@
         {
           "name": "name",
           "type": "string"
+        },
+        {
+          "name": "parent",
+          "type": {
+            "option": "pubkey"
+          }
         }
       ]
+    },
+    {
+      "name": "migrate_storage",
+      "docs": [
+        "Migrate a pre-SPL ShareStorage account to the current on-chain format"
+      ],
+      "discriminator": [
+        77,
+        81,
+        104,
+        126,
+        43,
+        127,
+        211,
+        101
+      ],
+      "accounts": [
+        {
+          "name": "share_storage",
+          "writable": true
+        },
+        {
+          "name": "admin",
+          "signer": true
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
     },
     {
       "name": "set_holders",
@@ -363,6 +572,19 @@
         208,
         123
       ]
+    },
+    {
+      "name": "TokenDistributionRecord",
+      "discriminator": [
+        250,
+        168,
+        237,
+        64,
+        125,
+        140,
+        236,
+        222
+      ]
     }
   ],
   "errors": [
@@ -404,7 +626,7 @@
     {
       "code": 6007,
       "name": "InvalidName",
-      "msg": "Invalid name. Name must be between 1 and 32 characters."
+      "msg": "Invalid name. Name must be between 1 and 32 bytes."
     },
     {
       "code": 6008,
@@ -425,6 +647,41 @@
       "code": 6011,
       "name": "ArithmeticOverflow",
       "msg": "Arithmetic overflow occurred."
+    },
+    {
+      "code": 6012,
+      "name": "InvalidTokenMint",
+      "msg": "Invalid token account: wrong mint."
+    },
+    {
+      "code": 6013,
+      "name": "InvalidTokenOwner",
+      "msg": "Invalid token account: wrong owner."
+    },
+    {
+      "code": 6014,
+      "name": "TokenAccountFrozen",
+      "msg": "Token account is frozen."
+    },
+    {
+      "code": 6015,
+      "name": "ParentAdminMismatch",
+      "msg": "Sub-storage admin must match parent admin."
+    },
+    {
+      "code": 6016,
+      "name": "InvalidParentAccount",
+      "msg": "Parent storage account not found or invalid."
+    },
+    {
+      "code": 6017,
+      "name": "AlreadyMigrated",
+      "msg": "Account is already in the new format."
+    },
+    {
+      "code": 6018,
+      "name": "InvalidMigration",
+      "msg": "Account data is invalid for migration."
     }
   ],
   "types": [
@@ -440,6 +697,10 @@
           {
             "name": "share_basis_points",
             "type": "u16"
+          },
+          {
+            "name": "is_storage",
+            "type": "bool"
           }
         ]
       }
@@ -478,6 +739,36 @@
                 }
               }
             }
+          },
+          {
+            "name": "parent",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokenDistributionRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "share_storage",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_distributed",
+            "type": "u64"
+          },
+          {
+            "name": "last_distributed_at",
+            "type": "i64"
           }
         ]
       }
